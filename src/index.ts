@@ -4,6 +4,7 @@ import sequelize, { connectToDB } from './database/db.js'
 import { migrator, pendingMigrations } from './database/migrator.js'
 import { getPaymentProvider } from './modules/payments/index.js'
 import { startReconciler, stopReconciler } from './services/payments/reconcilerJob.js'
+import { startEmailWorker, stopEmailWorker } from './modules/notifications/mailer.js'
 import { describeError, logger } from './utils/logger.js'
 
 const start = async () => {
@@ -35,11 +36,13 @@ const start = async () => {
         logger.info(`Server running on port ${config.server.port}`, { appEnv: config.app.env })
     })
     startReconciler()
+    startEmailWorker()
 
     // Let in-flight requests finish and close DB connections when the host stops the app (e.g. on redeploy)
     const shutdown = (signal: string) => {
         logger.info(`${signal} received, shutting down...`)
         stopReconciler()
+        stopEmailWorker()
         server.close(async () => {
             await sequelize.close()
             process.exit(0)
