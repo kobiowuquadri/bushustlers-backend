@@ -35,10 +35,20 @@ const sequelize = new Sequelize(
   }
 )
 
-// Throws on failure so the server never starts without a database.
-// Schema changes are applied by migrations (npm run db:migrate), never by sequelize.sync().
-export const connectToDB = async () => {
-  await sequelize.authenticate()
+// Retries briefly (hosted MySQL can refuse connections for a few seconds during restarts), then throws so
+// the server never starts without a database. Schema changes are applied by migrations, never by sync().
+export const connectToDB = async (attempts = 6) => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await sequelize.authenticate()
+      return
+    } catch (error) {
+      if (attempt >= attempts) throw error
+      const waitMs = Math.min(2000 * attempt, 10000)
+      console.warn(`[warn] Database not reachable (attempt ${attempt}/${attempts}); retrying in ${waitMs / 1000}s`)
+      await new Promise((resolve) => setTimeout(resolve, waitMs))
+    }
+  }
 }
 
 export default sequelize

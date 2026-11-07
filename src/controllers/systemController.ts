@@ -32,8 +32,12 @@ export const publicConfigController = (req: Request, res: Response) => {
 
 // Development only: emails captured instead of sent when no email provider is configured.
 // The route is not even registered unless the dev mailbox is enabled (never in sandbox or production).
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
 export const devMailboxController = asyncHandler(async (req: Request, res: Response) => {
-  if (!config.email.devMailbox) {
+  // Also require a loopback TCP peer (not X-Forwarded-For, which can be spoofed): a hosted server never
+  // receives loopback connections, so captured emails can't leak even if APP_ENV is misconfigured there.
+  if (!config.email.devMailbox || !LOOPBACK.has(req.socket.remoteAddress || '')) {
     return res.status(NOT_FOUND).json(messageHandler('Not found', false, NOT_FOUND));
   }
   const emails = await EmailOutbox.findAll({ where: { status: 'captured' }, order: [['createdAt', 'DESC']], limit: 30 });
