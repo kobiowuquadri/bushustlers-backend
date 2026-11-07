@@ -217,7 +217,11 @@ export const startPaymentService = async (linkPublicId: string, input: StartPaym
       });
     } catch (error) {
       const providerError = error instanceof ProviderError ? error : null;
-      if (!providerError) logger.error('Payment setup failed', { requestId, ...describeError(error) });
+      if (providerError) {
+        logger.warn('Payment provider setup failed', { requestId, provider: provider.name, mode: provider.mode, route: attempt.route, kind: providerError.kind, httpStatus: providerError.httpStatus });
+      } else {
+        logger.error('Payment setup failed', { requestId, ...describeError(error) });
+      }
       await attempt.update({ status: 'failed', failedAt: new Date(), failureReason: providerError ? `${providerError.kind}: ${providerError.message}`.slice(0, 255) : 'Unexpected error' });
       await recordAudit({ businessId: attempt.businessId, orderId: attempt.orderId, entityType: 'payment_attempt', entityId: attempt.id, action: 'payment.setup_failed', actor: { type: 'provider' }, fromStatus: 'creating', toStatus: 'failed', metadata: { kind: providerError?.kind ?? 'unexpected' }, requestId });
       if (providerError?.kind === 'rejected') {
