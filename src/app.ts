@@ -37,7 +37,7 @@ app.use(express.urlencoded({ extended: false, limit: '100kb' }))
 app.use(cookieParser())
 
 app.get('/', (req, res) => {
-    res.send('Bushustlers API')
+    res.json({suceess: true, message: "Backend connected Successfully to Bushustlers"})
 })
 
 // For uptime monitors and the hosting platform's health check. Reports no configuration or secrets.

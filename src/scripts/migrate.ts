@@ -10,7 +10,7 @@ const isLocalHost = (host: string) => ['localhost', '127.0.0.1', '::1'].includes
 const main = async () => {
   const command = process.argv[2] || 'up';
   await sequelize.authenticate();
-  console.log(`Database: ${config.database.name} on ${isLocalHost(config.database.host) ? config.database.host : 'remote host'} (APP_ENV=${config.app.env})`);
+  console.log(`Database: ${isLocalHost(config.database.host) ? `${config.database.name} on ${config.database.host}` : 'remote database'} (APP_ENV=${config.app.env})`);
 
   if (command === 'status') {
     const executed = (await migrator.executed()).map((m) => m.name);
