@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: quick_serve_typescript
+    name: bushustlers-backend
     env: node
     # --include=dev: NODE_ENV=production would otherwise skip typescript and @types needed by the build
     buildCommand: npm install --include=dev && npm run build
@@ -9,11 +9,18 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Hosted test environment: secure cookies, no dev mailbox, demo/sandbox payments only
+      - key: APP_ENV
+        value: sandbox
       - key: PORT
         value: 5000
       - key: TRUST_PROXY
         value: 1
+      - key: FRONTEND_URL
+        sync: false
       - key: CORS_ORIGIN
+        sync: false
+      - key: SECRET_KEY
         sync: false
       - key: DB_NAME
         sync: false
@@ -25,9 +32,25 @@ services:
         sync: false
       - key: DB_PORT
         sync: false
-      - key: SECRET_KEY
+      - key: DB_POOL_MAX
+        value: 3
+      # Additive migrations run on deploy
+      - key: DB_MIGRATE_ON_START
+        value: true
+      # demo until the Busha sandbox business profile is verified; then busha + the three keys below
+      - key: PAYMENTS_PROVIDER
+        value: demo
+      - key: BUSHA_ENV
+        value: sandbox
+      - key: BUSHA_PUBLIC_KEY
         sync: false
-      - key: EMAIL_USER
+      - key: BUSHA_SECRET_KEY
         sync: false
-      - key: EMAIL_PASSWORD
-        sync: false 
+      - key: BUSHA_WEBHOOK_SECRET
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: Bushustlers

@@ -1,179 +1,81 @@
-## Quick Serve TypeScript – Starter Template
+# Bushustlers API
 
-Production-ready Express + TypeScript starter with JWT auth, Sequelize (SQL), validation, file uploads, email (Nodemailer/Handlebars), and helpful utilities.
+Express + TypeScript + Sequelize (MySQL) backend for Bushustlers: payment links, buyer checkout, provider-verified payment status, reconciliation and settlement records for small businesses. The frontend lives in `../bushustler`.
 
-### Features
-- **TypeScript + tsx**: Fast dev runtime with `tsx`, compiled builds via `tsc`
-- **Express**: API server with helmet, CORS, morgan, cookie-parser, global error handling and a 404 handler
-- **JWT Auth**: Register, login, refresh-token rotation, logout and profile endpoints
-- **Security**: Rate-limited auth routes, hashed refresh tokens, typed access/refresh tokens, env validation at startup
-- **Sequelize**: SQL ORM (MySQL by default); example `Auth` model wired
-- **Validation**: `express-validator` schemas with a consistent error response
-- **Email**: Nodemailer + Handlebars templates and Brevo (Sendinblue) REST support
-- **Uploads**: Multer + Cloudinary (streamed uploads)
-- **Utilities**: Async handler, `AppError`, pagination, secure OTP/token helpers, password and phone helpers
+**Send a link. Confirm the payment. Fulfil the order.** An order only becomes *Paid* when the backend has confirmed the payment with the provider and the status, amount, currency and reference all match.
 
-### Tech Stack
-- Node.js (>= 20), TypeScript
-- Express, express-validator, helmet, express-rate-limit
-- Sequelize, mysql2
-- jsonwebtoken, bcryptjs
-- Nodemailer, nodemailer-express-handlebars, Brevo API (axios)
-- Multer, Cloudinary
+## Run it
 
-### Project Structure
-```
-src/
-  config/
-    config.ts                   # all env vars in one place, validated at startup
-  constants/
-    statusCode.ts               # HTTP status codes
-  controllers/
-    users/
-      authController.ts         # thin controllers: call a service, send its result
-  database/
-    db.ts                       # Sequelize instance + connectToDB
-  middlewares/
-    auth.ts                     # `verify`: requires a Bearer access token, sets req.user
-    errorHandler.ts             # `notFound` + global `errorHandler`
-    rateLimiter.ts              # `authLimiter` for auth routes
-  modules/
-    notifications/
-      email.ts                  # Nodemailer + Handlebars
-      brevo.ts                  # Brevo REST email
-    storage/
-      cloudinary.ts             # Multer upload manager + Cloudinary upload helper
-    views/                      # Handlebars email templates (copied to dist on build)
-  routes/
-    index.ts                    # mounts routers under /api/v1
-    users/
-      index.ts                  # auth routes
-  schemas/
-    users/
-      authSchema.ts             # Sequelize model + init
-  services/
-    users/
-      authService.ts            # auth business logic
-  types/
-    users/auth.ts               # DTOs for auth
-    express.d.ts                # adds `req.user` to Express' Request type
-    nodemailer-express-handlebars.d.ts # local type shim
-  utils/                        # see "Utilities" below; import everything from utils/index.js
-  validations/
-    index.ts                    # `validate` middleware
-    users/authValidations.ts    # auth validation schemas
-  app.ts                        # Express app (middleware, routes, error handling)
-  index.ts                      # starts the server after the DB connects; graceful shutdown
-```
+Requirements: Node 20+, a MySQL 8 database.
 
-### Getting Started
-1) Install dependencies
 ```bash
 npm install
+cp .env.example .env          # fill in DB_*, SECRET_KEY (32+ chars), FRONTEND_URL; see comments
+npm run db:migrate            # additive migrations (or set DB_MIGRATE_ON_START=true)
+npm run dev                   # http://localhost:5000  (nodemon + tsx)
 ```
 
-2) Configure environment: copy `.env.example` to `.env` and fill it in. `SECRET_KEY`, `DB_NAME` and `DB_USER` are required; the server refuses to start without them.
+Optional demo data for **Amaka Clothing** (fictional people; refuses to run in production, only with the demo provider, and only when you name the database explicitly):
 
-3) Database setup
-- On startup the app connects to the database and runs `sequelize.sync()`, which creates missing tables but never alters existing ones. Use migrations for schema changes on an existing database.
-
-4) Run in development
 ```bash
-npm run dev
+npm run db:seed:dev -- --confirm=<DB_NAME>
+# sign in as amaka@example.com / Amaka-Demo-104!  (override with SEED_DEMO_PASSWORD)
 ```
 
-5) Build and start
+Build and run compiled code: `npm run build && npm start`. Type check: `npm run typecheck`.
+
+### Tests
+
+`npm test` runs 44 integration tests (auth, CSRF, merchant isolation, orders, links, checkout, webhooks, reconciliation, Busha adapter against a fake Busha HTTP server). They need a **disposable local MySQL** and never touch the shared database: the setup refuses anything that is not `localhost` with a database name ending in `_test`, then drops and recreates it.
+
 ```bash
-npm run build
-npm start
+docker run -d --name bushustlers-test-db -p 3307:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=bushustlers_test -e MYSQL_USER=bushustlers -e MYSQL_PASSWORD=local-dev-only mysql:8.0
+npm test     # defaults: 127.0.0.1:3307, user bushustlers / local-dev-only; override with TEST_DB_*
 ```
 
-### API
-All responses share one shape:
-```json
-{ "message": "Login successful", "success": true, "statusCode": 200, "data": { } }
-```
+## Environments
 
-| Method | Path                           | Auth   | Description                                     |
-| ------ | ------------------------------ | ------ | ----------------------------------------------- |
-| GET    | `/`                            | –      | Simple "server is running" message              |
-| GET    | `/health`                      | –      | 200 when the database is reachable, 503 if not  |
-| POST   | `/api/v1/users/register`       | –      | `{ email, password }` → tokens + user (201)     |
-| POST   | `/api/v1/users/login`          | –      | `{ email, password }` → tokens + user           |
-| POST   | `/api/v1/users/refresh-token`  | –      | `{ refreshToken }` → new token pair             |
-| POST   | `/api/v1/users/logout`         | Bearer | Revokes the refresh token                       |
-| GET    | `/api/v1/users/me`             | Bearer | Current user                                    |
+| `APP_ENV` | Use | Notes |
+| --- | --- | --- |
+| `development` | Your machine | Demo provider by default, dev mailbox when no email provider, relaxed cookies |
+| `sandbox` | Hosted test (Render) | Secure `__Host-` cookies, `FRONTEND_URL` required, demo or Busha sandbox only |
+| `production` | Live money | Refuses to start unless `PAYMENTS_PROVIDER=busha`, `BUSHA_ENV=production`, explicit `BUSHA_BASE_URL` and `ALLOW_LIVE_PAYMENTS=true` |
 
-Register, login and refresh share a rate limit of 20 requests per 15 minutes per IP.
+Startup validates configuration and refuses to run with missing/invalid values or pending migrations.
 
-### Auth Flow
-- Access and refresh tokens carry a `type` claim, so a refresh token can't be used as an access token.
-- Only a SHA-256 hash of the latest refresh token is stored. Each refresh rotates it, so an old refresh token stops working once it has been used.
-- Logout clears the stored refresh token. The access token stays valid until it expires, so keep `ACCESS_TOKEN_EXPIRES_IN` short in production.
-- One refresh token per user: logging in on a new device signs the previous device out at its next refresh.
+## Payments
 
-### Validation
-Pass a schema to `validate` in a route:
-```ts
-userRouter.post('/register', authLimiter, validate(registerValidation), registerController)
-```
-Failures return 422 with `data.errors: [{ field, message }]`.
+| Mode | How to enable | What happens |
+| --- | --- | --- |
+| Demo | `PAYMENTS_PROVIDER=demo` | Clearly fake instructions (`DEMO-` account numbers, `demo-` addresses, labelled demo rate). Merchant-side tools simulate buyer/provider outcomes, delivered as signed notifications through the real webhook → lookup → reconcile pipeline |
+| Busha sandbox | `PAYMENTS_PROVIDER=busha`, `BUSHA_ENV=sandbox`, `BUSHA_PUBLIC_KEY`, `BUSHA_SECRET_KEY`, `BUSHA_WEBHOOK_SECRET` | NGN bank transfer: `POST /v1/quotes` (NGN→NGN, `pay_in.type=temporary_bank_account`) then `POST /v1/transfers`; status via `GET /v1/transfers/{id}`. Stablecoin: `POST /v1/payments/requests` (public key, `quote_currency=NGN`, settles to NGN); status via `GET /v1/payments/requests/{id}`. Webhooks verified with `x-bu-signature`. Sandbox deposits can be simulated with `POST /v1/transfers/simulate-deposit` from the transaction page |
+| Production | as above with `BUSHA_ENV=production`, `APP_ENV=production`, `ALLOW_LIVE_PAYMENTS=true`, `BUSHA_BASE_URL` | Not exercised. Only after Busha production access and the checks are in place |
 
-### Errors
-Throw `AppError` from a service or middleware, and wrap async controllers in `asyncHandler` so the error reaches the global error handler:
-```ts
-throw new AppError('Product not found', NOT_FOUND)
-```
-Unexpected errors are logged and returned as a generic 500 without internal details.
+Register the webhook URL `https://<api-host>/api/v1/webhooks/busha` in the Busha dashboard (Settings → Developer tools → Webhooks) and copy its secret into `BUSHA_WEBHOOK_SECRET`.
 
-### Email
-- Nodemailer + Handlebars: `src/modules/notifications/email.ts`
-  - `sendEmail({ to, subject, template, context })`, with templates in `src/modules/views/*.handlebars`
-  - Configure `EMAIL_USER` and `EMAIL_PASSWORD`
-- Brevo REST: `src/modules/notifications/brevo.ts`
-  - Requires `BREVO_API_KEY` and `BREVO_SENDER_EMAIL`
+### Correctness rules (enforced in `services/payments/reconciliationService.ts`)
 
-### File Uploads (Cloudinary)
-```ts
-router.post('/avatar', verify, uploadManager.single('avatar'), asyncHandler(async (req, res) => {
-  const url = await uploadToCloudinary(req.file!, 'avatars')
-  sendResponse(res, messageHandler('Uploaded', true, SUCCESS, { url }))
-}))
-```
-Invalid file types return 415 and files over 10MB return 413.
+- Financial state changes only through `applyProviderState`, inside one DB transaction with the attempt and order rows locked.
+- Webhooks: raw-body HMAC check → stored once (SHA-256 dedupe) → acknowledged → authenticated provider lookup → reconcile. The event body never sets state directly.
+- Status only moves forward: a late `pending` never downgrades `confirmed`; repeated events count once.
+- Underpayment, overpayment, multiple deposits, late payment (after expiry/closure), currency or reference mismatch → *needs review*. A second genuine payment for a paid order is recorded and flagged, never discarded or double-credited.
+- Idempotent payment initiation (`Idempotency-Key`, unique per link), reuse of still-valid instructions, provider calls outside DB transactions.
+- A background reconciler retries failed events, polls open payments, closes lapsed instructions, expires links, and watches closed payments for late funds for 48 hours.
+- Money: BigInt minor units for naira, exact decimal strings for stablecoins; no floating point.
+- Fees (proposed pricing, paid by the business): 1% per verified naira payment capped at ₦1,000; 1.5% per stablecoin checkout. A settlement record (gross, provider fee, platform fee, net) is created on confirmation; it stays *pending* until a payout is recorded (payouts are not automated).
 
-### Utilities
-Everything is re-exported from `utils/index.ts`:
-- `response.ts`: `messageHandler`, `sendResponse`, `ServiceResponse` type
-- `errors.ts`: `AppError`
-- `asyncHandler.ts`: `asyncHandler` for async route handlers
-- `password.ts`: `hashPassword`, `verifyPassword`, `passwordValidator`
-- `token.ts`: `generateAccessToken`, `generateRefreshToken`, `verifyToken`, `getTokenExpiry`
-- `crypto.ts`: `generateVerificationCode` (OTP), `generateRandomToken` (magic/reset links), `hashToken`
-- `pagination.ts`: `getPagination(req.query)` → `{ page, limit, offset }`, and `paginate(findAndCountAllResult, page, limit)`
-- `phone.ts`: `verifyPhoneNumber`, `sanitizePhoneNumber` (Nigerian numbers → `+234…`)
+## Email
 
-### Scripts
-| Script              | What it does                                   |
-| ------------------- | ---------------------------------------------- |
-| `npm run dev`       | Watch mode with nodemon + tsx                  |
-| `npm run build`     | Compile to `dist/` and copy email templates    |
-| `npm start`         | Run the compiled server                        |
-| `npm run typecheck` | Type-check without emitting                    |
+Emails are **queued** (`email_outbox`) by requests and sent by a background worker (every 5 s) through Brevo (preferred) or Gmail SMTP, with retries (30 s, 2 m, 10 m, 30 m; 5 attempts) and atomic claiming so several API instances never send twice. The rendered HTML is deleted once sent. Without any provider in local development, emails are captured and shown at `http://localhost:3000/dev/mailbox` (loopback connections only; never on a hosted server).
 
-### Deployment (Render)
-`render.yaml` installs dev dependencies for the build, uses `/health` as the health check, and sets `TRUST_PROXY=1` so rate limiting sees real client IPs.
+Brevo: the sender must be verified, and if **Security → Authorised IPs** is enabled, the API host's IP must be allowed (or the blocking turned off), otherwise Brevo answers `401 unrecognised IP address`.
 
-### Security Notes
-- Store secrets in `.env` (never commit)
-- Use a long random `SECRET_KEY`
-- Prefer app-specific passwords for email providers
-- Set `CORS_ORIGIN` to your frontend's URL in production
+## Security notes
 
-### Next Steps / Customization
-- Add password reset and email verification flows (templates and `crypto.ts` helpers are ready)
-- Extend models and relationships in Sequelize; add migrations
-- Add integration tests and CI pipeline
+HttpOnly session cookies with rotation and reuse detection, double-submit CSRF + Origin checks, CORS limited to `CORS_ORIGIN`, rate limits on auth, email and checkout, request IDs on every response, log redaction of secrets and personal data, generic 500s, optional DB TLS (`DB_SSL`), merchant isolation on every query. `npm audit` reports a moderate `uuid` advisory through Sequelize that affects buffer arguments Bushustlers does not use.
 
-### License
-ISC
+## Deploy (Render)
+
+`render.yaml` builds with `npm install --include=dev && npm run build`, starts `npm start`, health-checks `/health`, runs migrations on start, and sets `APP_ENV=sandbox`. Set the `sync: false` variables in the dashboard: `FRONTEND_URL` (e.g. `https://bushustlers.vercel.app`), `CORS_ORIGIN` (frontend origins, comma-separated), `SECRET_KEY`, `DB_*`, Brevo and Busha keys. Keep `DB_POOL_MAX` low on small hosted MySQL plans.
+
+See [docs/API.md](docs/API.md) for every endpoint.
