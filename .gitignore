@@ -1,0 +1,32 @@
+# Node.js
+node_modules/
+dist/
+.env
+.env*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Miscellaneous
+coverage/
+
+package-lock.json
+text.txt

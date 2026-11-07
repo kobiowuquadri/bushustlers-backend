@@ -1,0 +1,61 @@
+{
+  "name": "bushustlers-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "nodemon",
+    "build": "tsc && npm run copy:views",
+    "copy:views": "node -e \"require('fs').cpSync('src/modules/views', 'dist/modules/views', { recursive: true })\"",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:migrate:prod": "node dist/scripts/migrate.js",
+    "db:seed:dev": "tsx src/scripts/seed-dev.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Bushustlers API: payment links, checkout, payment verification and reconciliation for small businesses",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.6.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.7.1",
+    "express-validator": "^7.0.1",
+    "handlebars": "4.7.10",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.5.0",
+    "mysql2": "^3.2.0",
+    "nodemailer": "^10.2.1",
+    "sequelize": "^6.31.0",
+    "umzug": "3.8.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^1.4.13",
+    "@types/node": "20.19.43",
+    "@types/nodemailer": "^8.0.2",
+    "@types/supertest": "7.2.1",
+    "nodemon": "^3.1.0",
+    "supertest": "7.3.1",
+    "tsx": "^3.12.7",
+    "typescript": "^5.0.3",
+    "vitest": "4.1.12"
+  }
+}
